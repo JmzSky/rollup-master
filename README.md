@@ -44,44 +44,21 @@ export default {
 
 - output.name --生成包名称，代表你的 iife/umd 包，同一页上的其他脚本可以访问它（iife/umd 没有 name 会报错的）
 
-## 搭配 babel 7
 
-rollup 的模块机制是 ES6 Modules，但并不会对 es6 其他的语法进行编译。因此如果要使用 es6 的语法进行开发，还需要使用 babel 来帮助我们将代码编译成 es5。
+### 安装对应编译的npm模块
+```
+## 安装 rollup.js 编译本地开发服务插件
+npm i --save-dev rollup-plugin-serve
 
-这种强需求，rollup 当然提供了解决方案。
+## 安装 rollup.js 编译代码混淆插件
+npm i --save-dev rollup-plugin-uglify
 
-### 安装模块
-
-[rollup-plugin-babel](https://github.com/rollup/rollup-plugin-babel) 将 rollup 和 babel 进行了完美结合。
-
-```bash
-npm install --save-dev rollup-plugin-babel@latest
+## 安装 rollup.js 编译ES6+的 babel 模块
+npm i --save-dev rollup-plugin-babel babel-core babel-preset-env babel-plugin-transform-object-rest-spread
 ```
 
-### 创建 .babelrc
-
-```js
-{
-    "presets": [
-      [
-        "@babel/preset-env",
-        {
-          "modules": false
-        }
-      ]
-    ]
-}
-```
-
-### babel 7 必要模块
-
-```bash
-npm install --save-dev @babel/core
-
-npm install --save-dev @babel/preset-env
-```
-
-## 兼容 commonjs
+## 安装插件
+rollup.js编译源码中的模块引用默认只支持 ES6+的模块方式import/export。然而大量的npm模块是基于CommonJS模块方式，这就导致了大量 npm 模块不能直接编译使用。所以辅助rollup.js编译支持 npm模块和CommonJS模块方式的插件就应运而生。
 
 npm 生态已经繁荣了多年，commonjs 规范作为 npm 的包规范，大量的 npm 包都是基于 commonjs 规范来开发的，因此在完美支持 es6 模块规范之前，我们仍旧需要兼容 commonjs 模块规范。
 
@@ -89,7 +66,7 @@ rollup 提供了插件 [rollup-plugin-commonjs](https://github.com/rollup/rollup
 
 rollup-plugin-commonjs 通常与 [rollup-plugin-node-resolve](https://github.com/rollup/rollup-plugin-node-resolve) 一同使用，后者用来解析依赖的模块路径。
 
-### 安装模块
+### rollup-plugin-commonjs 支持CommonJS的模块引用的rollup.js插件
 
 ```bash
 npm install --save-dev rollup-plugin-commonjs rollup-plugin-node-resolve
@@ -97,8 +74,7 @@ npm install --save-dev rollup-plugin-commonjs rollup-plugin-node-resolve
 
 > 注意： jsnext 表示将原来的 node 模块转化成 ES6 模块，main 和 browser 则决定了要将第三方模块内的哪些代码打包到最终文件中。
 
-
-### 安装模块
+### rollup-plugin-node-resolve 支持npm模块引用的rollup.js插件
 
 [rollup-plugin-replace](https://github.com/rollup/rollup-plugin-replace) 本质上是一个用来查找和替换的工具。它可以做很多事，但对我们来说只需要找到目前的环境变量并用实际值来替代就可以了。（例如：在 bundle 中出现的所有 ENV 将被 "production" 替换）
 
@@ -106,51 +82,18 @@ npm install --save-dev rollup-plugin-commonjs rollup-plugin-node-resolve
 npm install --save-dev rollup-plugin-replace
 ```
 
-### 更新 rollup.config.js
-
-配置很简单：我们可以添加一个 key:value 的配对表，key 值是准备被替换的键值，而 value 是将要被替换的值。
-
-```js
-import replace from "rollup-plugin-replace";
-
-export default {
-  plugins: [
-    replace({
-      ENV: JSON.stringify(process.env.NODE_ENV)
-    })
-  ]
-};
-```
-
-> 在我们的配置中找到每一个 ENV 并用 process.env.NODE_ENV 去替换，JSON.stringify 用来确保值是双引号的，不像 ENV 这样。
-
 ## 压缩 bundle
 
 添加 UglifyJS 可以通过移除注上释、缩短变量名、重整代码来极大程度的减少 bundle 的体积大小 —— 这样在一定程度降低了代码的可读性，但是在网络通信上变得更有效率。
 
-### 安装插件
 
 用下面的命令来安装 [rollup-plugin-uglify](https://github.com/TrySound/rollup-plugin-uglify)：
 
 ```bash
 npm install --save-dev rollup-plugin-uglify
+//配合terser
+npm install --save-dev rollup-plugin-terser
 ```
-
-### 更新 rollup.config.js
-
-接下来，让我们在 Rollup 配置中添加 Uglify 。然而，为了在开发中使代码更具可读性，让我们来设置只在生产环境中压缩混淆代码：
-
-```js
-import uglify from "rollup-plugin-uglify";
-
-export default {
-  plugins: [
-    process.env.NODE_ENV === "production" && uglify()
-  ]
-};
-```
-
-> 这里使用了短路计算策略，只有在 NODE_ENV 设置为 production 时加载 uglify()。
 
 ## 完整配置
 
