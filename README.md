@@ -1,38 +1,9 @@
-# 使用 rollup 打包 JS
+# rollup 搭建打包 JS
 
 ## 前言
 
 rollup 采用 es6 原生的模块机制进行模块的打包构建，rollup 更着眼于未来，对 commonjs 模块机制不提供内置的支持，是一款更轻量的打包工具。rollup 比较适合打包 js 的 sdk 或者封装的框架等，例如，vue 源码就是 rollup 打包的。而 webpack 比较适合打包一些应用，例如 SPA 或者同构项目等等。
 
-## 创建项目
-
-目录结构是这样的：
-
-```
-hey-rollup/
-├── dist
-│   ├── bundle-name.js
-│   └── bundle-name.min.js
-├── example
-│   ├── dist
-│   │   └── example.js
-│   ├── index.html
-│   └── index.js
-├── package-lock.json
-├── package.json
-├── rollup.config.js
-├── src
-│   └── index.js
-└── test
-    └── index.js
-```
-
-你可以在你的终端中执行下面的命令来安装此项目
-
-```bash
-# cd /path/to/your/projects
-git clone https://github.com/daixwu/hey-rollup.git
-```
 
 ## 安装 Rollup
 
@@ -102,22 +73,6 @@ npm install --save-dev rollup-plugin-babel@latest
 }
 ```
 
-### 更新 rollup.config.js
-
-```js
-import babel from "rollup-plugin-babel";
-
-export default {
-  plugins: [
-    babel({
-      exclude: 'node_modules/**',
-    }),
-  ],
-};
-```
-
-> 为了避免转译第三方脚本，我们需要设置一个 exclude 的配置选项来忽略掉 node_modules 目录
-
 ### babel 7 必要模块
 
 ```bash
@@ -125,51 +80,6 @@ npm install --save-dev @babel/core
 
 npm install --save-dev @babel/preset-env
 ```
-
-## ESLint 检查
-
-在你的代码中使用 linter 无疑是十分好的决定，因为它会强制执行一致的编码规范来帮助你捕捉像是漏掉了括弧这种棘手的 bug。
-
-在这个项目中，我们将会使用 ESLint。
-
-### 安装模块
-
-为了使用 ESLint，我们将要安装 [ESLint Rollup plugin](https://github.com/TrySound/rollup-plugin-eslint)
-
-```js
-npm install --save-dev rollup-plugin-eslint
-```
-
-### 生成一个 .eslintrc.json
-
-为了确保我们只获取我们想要的错误，我们需要首先配置 ESLint。这里可以通过下面的代码来自动生成大多数配置：
-
-```bash
-./node_modules/.bin/eslint --init
-```
-
-### 更新 rollup.config.js
-
-接下来，import ESLint 插件并将它添加到 Rollup 配置中：
-
-```js
-import eslint from 'rollup-plugin-eslint';
-
-export default {
-  plugins: [
-    eslint({
-      exclude: [
-        throwOnError: true,
-        throwOnWarning: true,
-        include: ['src/**'],
-        exclude: ['node_modules/**']
-      ]
-    }),
-  ],
-};
-```
-
-> eslint插件有两个属性需要说明：throwOnError 和 throwOnWarning 设置为 true 时，如果在 eslint 的检查过程中发现了 error 或warning，就会抛出异常，阻止打包继续执行（如果设置为false，就只会输出eslint检测结果，而不会停止打包）
 
 ## 兼容 commonjs
 
@@ -185,31 +95,8 @@ rollup-plugin-commonjs 通常与 [rollup-plugin-node-resolve](https://github.com
 npm install --save-dev rollup-plugin-commonjs rollup-plugin-node-resolve
 ```
 
-### 更新 rollup.config.js
-
-```js
-import babel from 'rollup-plugin-babel';
-import resolve from 'rollup-plugin-node-resolve';
-import commonjs from 'rollup-plugin-commonjs';
-
-export default {
-  plugins: [
-    resolve({
-      jsnext: true,
-      main: true,
-      browser: true,
-    }),
-    commonjs(),
-    babel({
-      exclude: 'node_modules/**',
-    }),
-  ],
-};
-```
-
 > 注意： jsnext 表示将原来的 node 模块转化成 ES6 模块，main 和 browser 则决定了要将第三方模块内的哪些代码打包到最终文件中。
 
-## 替代环境变量
 
 ### 安装模块
 
@@ -270,73 +157,63 @@ export default {
 最后附上我的 rollup.config.js 配置
 
 ```js
-import resolve from 'rollup-plugin-node-resolve';
-import commonjs from 'rollup-plugin-commonjs';
-import { eslint } from 'rollup-plugin-eslint';
-import babel from 'rollup-plugin-babel';
-import replace from 'rollup-plugin-replace';
-import { uglify } from 'rollup-plugin-uglify';
+import babel from 'rollup-plugin-babel'
+import commonjs from 'rollup-plugin-commonjs'
+import eslint from 'rollup-plugin-eslint'
+import nodeResolve from 'rollup-plugin-node-resolve'
+import replace from 'rollup-plugin-replace'
+import { terser } from "rollup-plugin-terser";
 
-const packages = require('./package.json');
+import pkg from './package.json'
 
-const ENV = process.env.NODE_ENV;
+const isProd = process.env.NODE_ENV === 'production'
+const basePlugins = [
+    // eslint检查
+    eslint({
+        throwOnError: true,
+        throwOnWarning: true,
+        include: ['src/js/**'],
+        exclude: ['node_modules/**']
+    }),
+    // 替换源文件内容
+    replace({
+        delimiters: ['{{', '}}'],
+        DEVELOPMENT: process.env.NODE_ENV,
+        VERSION: pkg.version
+    }),
+    // 解决第三方模块依赖
+    nodeResolve({
+        jsnext: true,
+        main: true,
+        browser: true
+    }),
+    // commonjs转es6模块
+    commonjs(),
+    // 解析babel语法
+    babel({
+        exclude: 'node_modules/**'
+    })
+]
+const devPlugins = []
+const prodPlugins = [
+    // 压缩文件
+    terser()
+]
 
-const paths = {
-    input: {
-        root: ENV === 'example'
-            ? 'example/index.js'
-            : 'src/index.js',
-    },
-    output: {
-        root: ENV === 'example'
-            ? 'example/dist/'
-            : 'dist/',
-    },
-};
-
-const fileNames = {
-    development: `${packages.name}.js`,
-    example: `example.js`,
-    production: `${packages.name}.min.js`
-};
-
-const fileName = fileNames[ENV];
+let plugins = [...basePlugins].concat(isProd ? prodPlugins : devPlugins)
+const entryFile = './src/index.js'
+const destFile = isProd ? './dist/jsdk.min.js' : './dist/jsdk.js'
 
 export default {
-    input: `${paths.input.root}`,
-    output: {
-        file: `${paths.output.root}${fileName}`,
-        format: 'umd',
-        name: 'bundle-name'
-    },
-    plugins: [
-        resolve(),
-        commonjs(),
-        eslint({
-            include: ['src/**'],
-            exclude: ['node_modules/**']
-        }),
-        babel({
-            exclude: 'node_modules/**',
-            runtimeHelpers: true,
-        }),
-        replace({
-            exclude: 'node_modules/**',
-            ENV: JSON.stringify(process.env.NODE_ENV),
-        }),
-        (ENV === 'production' && uglify()),
-    ],
-};
+    entry: entryFile,
+    format: 'umd',
+    dest: destFile,
+    moduleName: pkg.name,
+    sourceMap: isProd,
+    plugins: plugins
+}
 ```
 
-## 参考资料
-
-[rollup.js wiki zh](rollup.js)
-
-[如何通过 Rollup.js 打包 JavaScript](https://zhuanlan.zhihu.com/p/28096758)
+## 注意点
 
 [rollup打包js的注意点](https://juejin.im/post/5beae896f265da61682aebae)
-
-[babel 7 教程](https://blog.zfanw.com/babel-js/)
-
-[S打包工具rollup——完全入门指南](https://segmentfault.com/a/1190000010628352#articleHeader15)
